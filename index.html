@@ -366,17 +366,18 @@ import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc,
 
 // ══ MESMO FIREBASE do index.html ══
 const firebaseConfig = {
-  apiKey:            "SUA_API_KEY",
-  authDomain:        "SEU_PROJETO.firebaseapp.com",
-  projectId:         "SEU_PROJETO_ID",
-  storageBucket:     "SEU_PROJETO.appspot.com",
-  messagingSenderId: "SEU_SENDER_ID",
-  appId:             "SEU_APP_ID"
+  apiKey: "AIzaSyC6TiUJ3GeufRE-SZDeMcP91QYWPGtCwVE",
+  authDomain: "catalogo-31357.firebaseapp.com",
+  projectId: "catalogo-31357",
+  storageBucket: "catalogo-31357.firebasestorage.app",
+  messagingSenderId: "75776995987",
+  appId: "1:75776995987:web:63f4c0fcd17b450fcd9366",
+  measurementId: "G-9DHXQWTLM7"
 };
 
 // ══ URL DO SEU index.html hospedado no Netlify ══
 // Troque pelo link real do seu Netlify depois de subir o index.html
-const CATALOG_BASE_URL = 'https://SEU-SITE.netlify.app/';
+const CATALOG_BASE_URL = 'https://catalagopro.github.io/catalagomaster/
 
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
