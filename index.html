@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Master — Catálogo Pro</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{font-family:'Inter',sans-serif;background:#f1f5f9}
+.font-serif{font-family:'Playfair Display',serif}
+.gold-gradient{background:linear-gradient(135deg,#D4AF37,#F4E5C2,#D4AF37)}
+.btn-gold{background:linear-gradient(135deg,#D4AF37,#B8941F);color:white;transition:all .3s;box-shadow:0 4px 15px rgba(212,175,55,.3)}
+.btn-gold:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(212,175,55,.4)}
+.loading-overlay{position:fixed;inset:0;background:rgba(26,26,26,.92);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+.toast{position:fixed;bottom:20px;right:20px;z-index:9999;transform:translateX(150%);transition:transform .4s cubic-bezier(.68,-.55,.265,1.55);min-width:280px}
+.toast.show{transform:translateX(0)}
+.tab-btn{padding:.6rem 1.4rem;border-radius:.75rem;font-weight:700;font-size:.85rem;transition:all .2s;cursor:pointer;border:2px solid #e5e7eb;background:white;color:#4b5563}
+.tab-btn.active{background:#1a1a1a;color:white;border-color:#1a1a1a}
+.tab-btn:not(.active):hover{border-color:#D4AF37;color:#1a1a1a}
+.tab-pane{display:none}
+.tab-pane.active{display:block;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.form-field{width:100%;padding:.75rem 1rem;border:2px solid #e5e7eb;border-radius:.75rem;font-size:.875rem;outline:none;transition:border-color .2s}
+.form-field:focus{border-color:#D4AF37}
+.store-card{background:white;border-radius:1rem;padding:1.25rem;box-shadow:0 2px 8px rgba(0,0,0,.06);border-left:4px solid #e5e7eb;transition:all .2s}
+.store-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1)}
+.store-card.active{border-left-color:#10B981}
+.store-card.inactive{border-left-color:#F59E0B}
+.store-card.blocked{border-left-color:#EF4444}
+</style>
+</head>
+<body class="antialiased min-h-screen">
+
+<div id="loading" class="loading-overlay hidden">
+  <div class="text-center">
+    <div class="relative w-20 h-20 mx-auto mb-4">
+      <div class="absolute inset-0 border-4 border-gray-700 rounded-full"></div>
+      <div class="absolute inset-0 border-4 border-yellow-400 rounded-full border-t-transparent animate-spin"></div>
+    </div>
+    <p class="text-white font-semibold text-lg" id="loading-msg">Carregando...</p>
+  </div>
+</div>
+<div id="toast-container" class="toast"></div>
+
+<!-- ══ LOGIN ══ -->
+<div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-md">
+    <div class="text-center mb-8">
+      <div class="w-20 h-20 gold-gradient rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+        <i class="fas fa-crown text-gray-900 text-3xl"></i>
+      </div>
+      <h1 class="text-3xl font-serif font-bold">Painel Master</h1>
+      <p class="text-gray-500 text-sm mt-1">Acesso exclusivo ao administrador</p>
+    </div>
+    <form onsubmit="doLogin(event)" class="space-y-4">
+      <input type="email" id="m-email" required placeholder="Seu e-mail master" class="form-field">
+      <input type="password" id="m-pass" required placeholder="Senha" class="form-field">
+      <button type="submit" class="w-full btn-gold py-4 rounded-xl font-bold text-lg">Entrar</button>
+    </form>
+    <p id="login-error" class="text-red-500 text-sm text-center mt-4 hidden">E-mail ou senha inválidos.</p>
+  </div>
+</div>
+
+<!-- ══ PAINEL MASTER ══ -->
+<div id="master-panel" class="hidden min-h-screen">
+  <header class="bg-gray-900 text-white px-6 py-4 flex items-center justify-between shadow-xl sticky top-0 z-50">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 gold-gradient rounded-full flex items-center justify-center">
+        <i class="fas fa-crown text-gray-900 text-lg"></i>
+      </div>
+      <div>
+        <h1 class="font-serif font-bold text-lg">Catálogo Pro — Master</h1>
+        <p class="text-xs text-gray-400" id="master-email-display"></p>
+      </div>
+    </div>
+    <button onclick="doLogout()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl text-sm font-bold transition">
+      <i class="fas fa-sign-out-alt mr-1"></i>Sair
+    </button>
+  </header>
+
+  <main class="container mx-auto px-4 py-8 max-w-7xl">
+
+    <!-- Cards resumo -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div class="bg-white p-5 rounded-2xl shadow border-l-4 border-yellow-500"><p class="text-gray-400 text-xs mb-1">Total Lojas</p><p class="text-3xl font-bold" id="st-total">0</p></div>
+      <div class="bg-white p-5 rounded-2xl shadow border-l-4 border-green-500"><p class="text-gray-400 text-xs mb-1">Ativas</p><p class="text-3xl font-bold text-green-600" id="st-active">0</p></div>
+      <div class="bg-white p-5 rounded-2xl shadow border-l-4 border-orange-500"><p class="text-gray-400 text-xs mb-1">Inativas</p><p class="text-3xl font-bold text-orange-500" id="st-inactive">0</p></div>
+      <div class="bg-white p-5 rounded-2xl shadow border-l-4 border-red-500"><p class="text-gray-400 text-xs mb-1">Bloqueadas</p><p class="text-3xl font-bold text-red-600" id="st-blocked">0</p></div>
+    </div>
+
+    <!-- Abas -->
+    <div class="flex flex-wrap gap-2 mb-6">
+      <button class="tab-btn active" onclick="switchTab('tab-stores',this)"><i class="fas fa-store mr-2"></i>Lojas</button>
+      <button class="tab-btn" onclick="switchTab('tab-orders',this)"><i class="fas fa-receipt mr-2"></i>Pedidos</button>
+      <button class="tab-btn" onclick="switchTab('tab-finance',this)"><i class="fas fa-chart-line mr-2"></i>Financeiro</button>
+      <button class="tab-btn" onclick="switchTab('tab-billing',this)"><i class="fas fa-file-invoice-dollar mr-2"></i>Cobranças</button>
+      <button class="tab-btn" onclick="switchTab('tab-users',this)"><i class="fas fa-users-cog mr-2"></i>Usuários</button>
+    </div>
+
+    <!-- ══ ABA LOJAS ══ -->
+    <div id="tab-stores" class="tab-pane active">
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-5">
+        <h2 class="text-2xl font-serif font-bold">Lojas Cadastradas</h2>
+        <button onclick="storeM.openModal()" class="btn-gold px-6 py-3 rounded-xl font-bold flex items-center gap-2"><i class="fas fa-plus"></i>Nova Loja</button>
+      </div>
+      <div class="bg-white p-4 rounded-2xl shadow mb-4 flex flex-wrap gap-3">
+        <input type="text" id="store-search" placeholder="Buscar por nome ou slug..." class="flex-1 form-field" oninput="storeM.filter()">
+        <select id="store-filter-status" onchange="storeM.filter()" class="form-field w-auto">
+          <option value="all">Todos os status</option>
+          <option value="active">✅ Ativas</option>
+          <option value="inactive">⏸ Inativas</option>
+          <option value="blocked">🔴 Bloqueadas</option>
+        </select>
+      </div>
+      <div id="stores-list" class="space-y-3"></div>
+    </div>
+
+    <!-- ══ ABA PEDIDOS ══ -->
+    <div id="tab-orders" class="tab-pane">
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+        <h2 class="text-2xl font-serif font-bold">Pedidos — Todas as Lojas</h2>
+        <button onclick="ordersM.load()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-5 py-2 rounded-xl font-bold text-sm transition"><i class="fas fa-sync mr-1"></i>Atualizar</button>
+      </div>
+      <div class="bg-white p-4 rounded-2xl shadow mb-4 flex flex-wrap gap-3">
+        <select id="orders-store-filter" class="form-field w-auto" onchange="ordersM.load()">
+          <option value="all">Todas as lojas</option>
+        </select>
+        <select id="orders-status-filter" class="form-field w-auto" onchange="ordersM.load()">
+          <option value="all">Todos os status</option>
+          <option value="pending">⏳ Pendentes</option>
+          <option value="confirmed">✅ Confirmados</option>
+          <option value="completed">🏁 Concluídos</option>
+          <option value="canceled">❌ Cancelados</option>
+        </select>
+      </div>
+      <div class="bg-white rounded-2xl shadow overflow-x-auto">
+        <table class="w-full text-left min-w-[700px]">
+          <thead class="bg-gray-50 border-b-2 border-gray-200">
+            <tr><th class="p-4 font-bold">ID</th><th class="p-4 font-bold">Loja</th><th class="p-4 font-bold">Cliente</th><th class="p-4 font-bold">Total</th><th class="p-4 font-bold">Status</th><th class="p-4 font-bold">Data</th></tr>
+          </thead>
+          <tbody id="all-orders-list"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ ABA FINANCEIRO ══ -->
+    <div id="tab-finance" class="tab-pane">
+      <h2 class="text-2xl font-serif font-bold mb-6">Financeiro Global</h2>
+      <div class="bg-white p-5 rounded-2xl shadow mb-6 flex flex-wrap items-end gap-4">
+        <div><label class="block text-xs font-bold mb-1 text-gray-600">Período</label>
+          <select id="fin-period" onchange="financeM.load()" class="form-field w-auto">
+            <option value="1">Este mês</option><option value="3" selected>3 meses</option><option value="6">6 meses</option><option value="12">12 meses</option>
+          </select></div>
+        <div><label class="block text-xs font-bold mb-1 text-gray-600">Loja</label>
+          <select id="fin-store" onchange="financeM.load()" class="form-field w-auto"><option value="all">Todas as lojas</option></select></div>
+        <button onclick="financeM.load()" class="btn-gold px-5 py-3 rounded-xl font-bold"><i class="fas fa-search mr-2"></i>Consultar</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white p-5 rounded-2xl shadow border-l-4 border-yellow-500"><p class="text-xs text-gray-500 mb-1">Faturamento Bruto</p><p class="text-2xl font-bold" id="fin-revenue">R$ 0</p></div>
+        <div class="bg-white p-5 rounded-2xl shadow border-l-4 border-green-500"><p class="text-xs text-gray-500 mb-1">Lucro das Lojas</p><p class="text-2xl font-bold text-green-600" id="fin-profit">R$ 0</p></div>
+        <div class="bg-white p-5 rounded-2xl shadow border-l-4 border-blue-500"><p class="text-xs text-gray-500 mb-1">Total Pedidos</p><p class="text-2xl font-bold text-blue-600" id="fin-orders">0</p></div>
+        <div class="bg-white p-5 rounded-2xl shadow border-l-4 border-purple-500"><p class="text-xs text-gray-500 mb-1">Ticket Médio</p><p class="text-2xl font-bold text-purple-600" id="fin-avg">R$ 0</p></div>
+      </div>
+      <div class="bg-white p-6 rounded-2xl shadow mb-8">
+        <h3 class="font-serif font-bold text-lg mb-4">Faturamento por Mês</h3>
+        <canvas id="masterFinanceChart" height="120"></canvas>
+      </div>
+      <!-- Custos master -->
+      <div class="bg-white rounded-2xl shadow mb-6">
+        <div class="p-5 border-b flex justify-between items-center">
+          <h3 class="font-serif font-bold text-lg">Meus Custos Operacionais</h3>
+          <button onclick="financeM.openExpenseModal()" class="btn-gold px-4 py-2 rounded-xl font-bold text-sm"><i class="fas fa-plus mr-1"></i>Lançar Custo</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left min-w-[500px]">
+            <thead class="bg-gray-50 border-b-2 border-gray-200">
+              <tr><th class="p-4 font-bold">Descrição</th><th class="p-4 font-bold">Valor</th><th class="p-4 font-bold">Mês</th><th class="p-4 font-bold">Recorrente</th><th class="p-4 font-bold">Ações</th></tr>
+            </thead>
+            <tbody id="master-expenses-list"></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Tabela por loja -->
+      <div class="bg-white rounded-2xl shadow overflow-x-auto">
+        <div class="p-5 border-b"><h3 class="font-serif font-bold text-lg">Desempenho por Loja</h3></div>
+        <table class="w-full text-left min-w-[600px]">
+          <thead class="bg-gray-50 border-b-2 border-gray-200">
+            <tr><th class="p-4 font-bold">Loja</th><th class="p-4 font-bold">Pedidos</th><th class="p-4 font-bold">Faturamento</th><th class="p-4 font-bold">Lucro</th><th class="p-4 font-bold">Ticket Médio</th><th class="p-4 font-bold">Status</th></tr>
+          </thead>
+          <tbody id="finance-stores-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ ABA COBRANÇAS ══ -->
+    <div id="tab-billing" class="tab-pane">
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+        <h2 class="text-2xl font-serif font-bold">Cobranças de Mensalidades</h2>
+        <div class="flex gap-2">
+          <button onclick="billingM.generateMonth()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl font-bold text-sm transition"><i class="fas fa-magic mr-1"></i>Gerar Mês Atual</button>
+          <button onclick="billingM.sendAll()" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-xl font-bold text-sm transition"><i class="fab fa-whatsapp mr-1"></i>Cobrar Pendentes</button>
+        </div>
+      </div>
+      <!-- Cards resumo cobranças -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white p-4 rounded-2xl shadow border-l-4 border-green-500"><p class="text-xs text-gray-500 mb-1">Pagas</p><p class="text-2xl font-bold text-green-600" id="bill-paid">0</p></div>
+        <div class="bg-white p-4 rounded-2xl shadow border-l-4 border-yellow-500"><p class="text-xs text-gray-500 mb-1">Pendentes</p><p class="text-2xl font-bold text-yellow-600" id="bill-pending">0</p></div>
+        <div class="bg-white p-4 rounded-2xl shadow border-l-4 border-red-500"><p class="text-xs text-gray-500 mb-1">Vencidas</p><p class="text-2xl font-bold text-red-600" id="bill-overdue">0</p></div>
+        <div class="bg-white p-4 rounded-2xl shadow border-l-4 border-blue-500"><p class="text-xs text-gray-500 mb-1">Receita Esperada</p><p class="text-2xl font-bold text-blue-600" id="bill-expected">R$ 0</p></div>
+      </div>
+      <!-- Filtros cobranças -->
+      <div class="bg-white p-4 rounded-2xl shadow mb-4 flex flex-wrap gap-3">
+        <select id="bill-month-filter" onchange="billingM.load()" class="form-field w-auto"></select>
+        <select id="bill-status-filter" onchange="billingM.load()" class="form-field w-auto">
+          <option value="all">Todos os status</option>
+          <option value="pending">⏳ Pendente</option>
+          <option value="paid">✅ Pago</option>
+          <option value="overdue">🔴 Vencido</option>
+        </select>
+        <!-- Template de mensagem -->
+        <button onclick="billingM.openTemplateModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-xl font-bold text-sm transition"><i class="fas fa-edit mr-1"></i>Editar Mensagem</button>
+      </div>
+      <div id="billing-list" class="space-y-3"></div>
+    </div>
+
+    <!-- ══ ABA USUÁRIOS ══ -->
+    <div id="tab-users" class="tab-pane">
+      <h2 class="text-2xl font-serif font-bold mb-6">Gestão de Usuários</h2>
+      <div class="max-w-2xl space-y-6">
+        <div class="bg-white p-6 rounded-2xl shadow">
+          <h3 class="font-bold text-lg mb-4 flex items-center gap-2 text-green-700"><i class="fas fa-user-plus"></i>Vincular Admin a uma Loja</h3>
+          <p class="text-sm text-gray-500 mb-4">Crie o usuário no Firebase Authentication, copie o UID e cole aqui.</p>
+          <div class="space-y-3">
+            <div><label class="block text-sm font-bold mb-1">Loja</label><select id="user-store-select" class="form-field"><option value="">Selecione a loja...</option></select></div>
+            <div><label class="block text-sm font-bold mb-1">UID do Usuário (Firebase Auth)</label><input type="text" id="user-uid" placeholder="Cole o UID aqui" class="form-field"></div>
+            <div><label class="block text-sm font-bold mb-1">E-mail (referência)</label><input type="email" id="user-email-ref" placeholder="email@exemplo.com" class="form-field"></div>
+            <button onclick="usersM.linkAdmin()" class="btn-gold px-6 py-3 rounded-xl font-bold w-full"><i class="fas fa-link mr-2"></i>Vincular como Admin</button>
+          </div>
+        </div>
+        <div class="bg-white p-6 rounded-2xl shadow">
+          <h3 class="font-bold text-lg mb-4 flex items-center gap-2 text-blue-700"><i class="fas fa-key"></i>Reset de Senha</h3>
+          <div class="space-y-3">
+            <div><label class="block text-sm font-bold mb-1">Loja</label><select id="reset-store-select" class="form-field" onchange="usersM.fillResetEmail()"><option value="">Selecione...</option></select></div>
+            <div><label class="block text-sm font-bold mb-1">E-mail</label><input type="email" id="reset-email-field" placeholder="E-mail do admin" class="form-field"></div>
+            <button onclick="usersM.sendReset()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold w-full transition"><i class="fas fa-envelope mr-2"></i>Enviar Link de Recuperação</button>
+          </div>
+        </div>
+        <div class="bg-white p-6 rounded-2xl shadow">
+          <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i class="fas fa-users text-gray-600"></i>Admins Cadastrados</h3>
+          <div id="admins-list" class="space-y-3"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ══ MODAL LOJA ══ -->
+<div id="modal-store" style="display:none" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+    <div class="flex justify-between items-center mb-6">
+      <h3 class="text-xl font-serif font-bold" id="modal-store-title">Nova Loja</h3>
+      <button onclick="document.getElementById('modal-store').style.display='none'" class="w-9 h-9 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-600 flex items-center justify-center transition"><i class="fas fa-times"></i></button>
+    </div>
+    <form id="store-form" onsubmit="storeM.save(event)" class="space-y-4">
+      <input type="hidden" name="id">
+      <div><label class="block text-sm font-bold mb-1">Nome da Loja *</label><input type="text" name="storeName" required class="form-field" placeholder="Ex: Loja da Ana"></div>
+      <div><label class="block text-sm font-bold mb-1">Slug (usado no link) *</label><input type="text" name="slug" required id="store-slug-input" class="form-field" placeholder="ex: loja-ana" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,'-')"><p class="text-xs text-gray-400 mt-1">Só letras minúsculas, números e hífen.</p></div>
+      <div><label class="block text-sm font-bold mb-1">WhatsApp</label><input type="text" name="whatsapp" class="form-field" placeholder="5511999999999"></div>
+      <div><label class="block text-sm font-bold mb-1">E-mail do Admin</label><input type="email" name="adminEmail" class="form-field" placeholder="admin@loja.com"></div>
+      <div><label class="block text-sm font-bold mb-1">Status</label><select name="status" class="form-field"><option value="active">✅ Ativa</option><option value="inactive">⏸ Inativa</option><option value="blocked">🔴 Bloqueada</option></select></div>
+      <div><label class="block text-sm font-bold mb-1">Valor do Plano (R$/mês)</label><input type="number" name="planValue" step="0.01" value="49.90" class="form-field"></div>
+      <div><label class="block text-sm font-bold mb-1">Dia de Vencimento</label><input type="number" name="dueDay" min="1" max="28" value="10" class="form-field"></div>
+      <div><label class="block text-sm font-bold mb-1">Observações</label><textarea name="notes" rows="2" class="form-field"></textarea></div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="document.getElementById('modal-store').style.display='none'" class="px-6 py-3 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50 transition">Cancelar</button>
+        <button type="submit" class="btn-gold px-8 py-3 rounded-xl font-bold">Salvar Loja</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══ MODAL COBRANÇA INDIVIDUAL ══ -->
+<div id="modal-billing" style="display:none" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6">
+    <div class="flex justify-between items-center mb-5">
+      <h3 class="text-xl font-serif font-bold">Cobrança</h3>
+      <button onclick="document.getElementById('modal-billing').style.display='none'" class="w-9 h-9 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-600 flex items-center justify-center transition"><i class="fas fa-times"></i></button>
+    </div>
+    <form id="billing-form" onsubmit="billingM.save(event)" class="space-y-4">
+      <input type="hidden" name="id">
+      <input type="hidden" name="storeId">
+      <div><label class="block text-sm font-bold mb-1">Loja</label><input type="text" name="storeName" readonly class="form-field bg-gray-50 text-gray-500 cursor-not-allowed"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-sm font-bold mb-1">Valor (R$)</label><input type="number" name="value" step="0.01" required class="form-field"></div>
+        <div><label class="block text-sm font-bold mb-1">Mês de Referência</label><input type="month" name="month" required class="form-field"></div>
+      </div>
+      <div><label class="block text-sm font-bold mb-1">Vencimento</label><input type="date" name="dueDate" class="form-field"></div>
+      <div><label class="block text-sm font-bold mb-1">Status</label>
+        <select name="status" class="form-field">
+          <option value="pending">⏳ Pendente</option>
+          <option value="paid">✅ Pago</option>
+          <option value="overdue">🔴 Vencido</option>
+        </select>
+      </div>
+      <div><label class="block text-sm font-bold mb-1">Observação</label><input type="text" name="notes" class="form-field" placeholder="Opcional"></div>
+      <div class="flex gap-3">
+        <button type="submit" class="flex-1 btn-gold py-3 rounded-xl font-bold">Salvar</button>
+        <button type="button" id="btn-send-wa" onclick="billingM.sendWhatsApp()" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold transition"><i class="fab fa-whatsapp mr-1"></i>Enviar WA</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══ MODAL TEMPLATE MENSAGEM ══ -->
+<div id="modal-template" style="display:none" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6">
+    <div class="flex justify-between items-center mb-5">
+      <h3 class="text-xl font-serif font-bold">Template de Cobrança</h3>
+      <button onclick="document.getElementById('modal-template').style.display='none'" class="w-9 h-9 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-600 flex items-center justify-center transition"><i class="fas fa-times"></i></button>
+    </div>
+    <p class="text-sm text-gray-500 mb-3">Variáveis disponíveis: <code class="bg-gray-100 px-1 rounded">{LOJA}</code> <code class="bg-gray-100 px-1 rounded">{VALOR}</code> <code class="bg-gray-100 px-1 rounded">{VENCIMENTO}</code> <code class="bg-gray-100 px-1 rounded">{MES}</code></p>
+    <textarea id="billing-template-text" rows="8" class="form-field mb-4" placeholder="Digite o template..."></textarea>
+    <div class="flex gap-3">
+      <button onclick="billingM.saveTemplate()" class="flex-1 btn-gold py-3 rounded-xl font-bold">Salvar Template</button>
+      <button onclick="document.getElementById('modal-template').style.display='none'" class="px-6 py-3 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50 transition">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL CUSTO MASTER ══ -->
+<div id="modal-master-expense" style="display:none" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6">
+    <div class="flex justify-between items-center mb-5">
+      <h3 class="text-xl font-serif font-bold" id="master-exp-title">Lançar Custo</h3>
+      <button onclick="document.getElementById('modal-master-expense').style.display='none'" class="w-9 h-9 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-600 flex items-center justify-center transition"><i class="fas fa-times"></i></button>
+    </div>
+    <form id="master-expense-form" onsubmit="financeM.saveExpense(event)" class="space-y-4">
+      <input type="hidden" name="id">
+      <input type="text" name="description" required placeholder="Descrição do custo *" class="form-field">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-sm font-bold mb-1">Valor (R$)</label><input type="number" name="value" step="0.01" required min="0" class="form-field"></div>
+        <div><label class="block text-sm font-bold mb-1">Mês/Ano</label><input type="month" name="month" required class="form-field"></div>
+      </div>
+      <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+        <input type="checkbox" name="recurring" id="mexp-recurring" class="w-5 h-5 accent-yellow-600">
+        <label for="mexp-recurring" class="font-semibold text-sm cursor-pointer">Custo recorrente (mensal)</label>
+      </div>
+      <div class="flex justify-end gap-3">
+        <button type="button" onclick="document.getElementById('modal-master-expense').style.display='none'" class="px-6 py-3 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50 transition">Cancelar</button>
+        <button type="submit" class="btn-gold px-8 py-3 rounded-xl font-bold">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail }
+  from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc,
+  collection, getDocs, query, where, orderBy, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+// ══ MESMO FIREBASE do index.html ══
+const firebaseConfig = {
+  apiKey:            "SUA_API_KEY",
+  authDomain:        "SEU_PROJETO.firebaseapp.com",
+  projectId:         "SEU_PROJETO_ID",
+  storageBucket:     "SEU_PROJETO.appspot.com",
+  messagingSenderId: "SEU_SENDER_ID",
+  appId:             "SEU_APP_ID"
+};
+
+// ══ URL DO SEU index.html hospedado no Netlify ══
+// Troque pelo link real do seu Netlify depois de subir o index.html
+const CATALOG_BASE_URL = 'https://SEU-SITE.netlify.app/';
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+const $id = id => document.getElementById(id);
+const fmt = v => 'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const nowMonth = () => new Date().toISOString().slice(0,7);
+
+function loading(show,msg='Carregando...'){
+  const el=$id('loading'); if(!el) return;
+  el.classList.toggle('hidden',!show);
+  const m=$id('loading-msg'); if(m) m.innerText=msg;
+}
+function toast(msg,type='success'){
+  const el=$id('toast-container'); if(!el) return;
+  const c={success:'bg-green-600',error:'bg-red-600',info:'bg-blue-600',warn:'bg-yellow-500'};
+  const i={success:'check-circle',error:'times-circle',info:'info-circle',warn:'exclamation-triangle'};
+  el.innerHTML=`<div class="px-6 py-4 ${c[type]||c.success} text-white rounded-2xl shadow-2xl font-semibold flex items-center gap-3 text-sm"><i class="fas fa-${i[type]||i.success}"></i>${msg}</div>`;
+  el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+let allStores=[], currentMasterUser=null;
+
+// ══ LOGIN / LOGOUT ══
+window.doLogin = async function(e){
+  e.preventDefault(); loading(true,'Verificando...');
+  try{ await signInWithEmailAndPassword(auth,$id('m-email').value.trim(),$id('m-pass').value); }
+  catch(err){ loading(false); const erEl=$id('login-error'); if(erEl) erEl.classList.remove('hidden'); }
+};
+window.doLogout = async function(){ await signOut(auth); location.reload(); };
+
+onAuthStateChanged(auth, async user=>{
+  if(!user){ showLogin(); return; }
+  loading(true,'Verificando acesso master...');
+  try{
+    const masterDoc=await getDoc(doc(db,'master_admins',user.uid));
+    if(!masterDoc.exists()){ toast('Acesso negado','error'); await signOut(auth); showLogin(); loading(false); return; }
+    currentMasterUser=user;
+    const em=$id('master-email-display'); if(em) em.innerText=user.email;
+    $id('login-screen').classList.add('hidden');
+    $id('master-panel').classList.remove('hidden');
+    await loadAllData();
+  }catch(err){ console.error(err); toast('Erro de acesso','error'); loading(false); showLogin(); }
+  loading(false);
+});
+
+function showLogin(){ $id('login-screen').classList.remove('hidden'); $id('master-panel').classList.add('hidden'); }
+
+// ══ TABS ══
+window.switchTab = function(tabId,btn){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  $id(tabId)?.classList.add('active'); btn.classList.add('active');
+  if(tabId==='tab-orders') ordersM.load();
+  if(tabId==='tab-finance') financeM.load();
+  if(tabId==='tab-billing') billingM.load();
+  if(tabId==='tab-users') usersM.load();
+};
+
+// ══ CARREGAR DADOS GLOBAIS ══
+async function loadAllData(){
+  loading(true,'Carregando lojas...');
+  try{
+    const snap=await getDocs(query(collection(db,'companies'),orderBy('storeName')));
+    allStores=snap.docs.map(d=>({id:d.id,...d.data()}));
+    $id('st-total').innerText=allStores.length;
+    $id('st-active').innerText=allStores.filter(s=>s.status==='active').length;
+    $id('st-inactive').innerText=allStores.filter(s=>s.status==='inactive').length;
+    $id('st-blocked').innerText=allStores.filter(s=>s.status==='blocked').length;
+    ['orders-store-filter','fin-store','user-store-select','reset-store-select'].forEach(selId=>{
+      const sel=$id(selId); if(!sel) return;
+      const first=sel.options[0]; sel.innerHTML=''; sel.appendChild(first);
+      allStores.forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.innerText=s.storeName||s.slug; sel.appendChild(o); });
+    });
+    storeM.render(allStores); usersM.renderAdminsList();
+    // Preencher filtro mês cobranças
+    const bms=$id('bill-month-filter'); if(bms){ bms.innerHTML=''; for(let i=0;i<12;i++){ const d=new Date(); d.setMonth(d.getMonth()-i); const val=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; const o=document.createElement('option'); o.value=val; o.innerText=d.toLocaleString('pt-BR',{month:'long',year:'numeric'}); bms.appendChild(o); } }
+  }catch(e){ console.error(e); }
+  loading(false);
+}
+
+// ══ GESTÃO DE LOJAS ══
+const storeM = {
+  filter(){
+    const q=($id('store-search')?.value||'').toLowerCase();
+    const st=$id('store-filter-status')?.value||'all';
+    const filtered=allStores.filter(s=>(st==='all'||s.status===st)&&((s.storeName||'').toLowerCase().includes(q)||(s.slug||'').toLowerCase().includes(q)));
+    this.render(filtered);
+  },
+  render(stores){
+    const el=$id('stores-list'); if(!el) return;
+    if(!stores.length){ el.innerHTML='<div class="text-center py-10 text-gray-400">Nenhuma loja encontrada</div>'; return; }
+    const sLabel={active:'✅ Ativa',inactive:'⏸ Inativa',blocked:'🔴 Bloqueada'};
+    const sBadge={active:'bg-green-100 text-green-700',inactive:'bg-yellow-100 text-yellow-700',blocked:'bg-red-100 text-red-600'};
+    el.innerHTML=stores.map(s=>{
+      const storeLink=`${CATALOG_BASE_URL}?loja=${s.slug}`;
+      return `<div class="store-card ${s.status||'inactive'}">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-3 mb-1">
+              <h3 class="font-bold text-lg">${s.storeName||'—'}</h3>
+              <span class="text-xs px-2 py-0.5 rounded-full font-bold ${sBadge[s.status]||sBadge.inactive}">${sLabel[s.status]||'—'}</span>
+            </div>
+            <p class="text-xs text-gray-400 font-mono">slug: <strong>${s.slug||'—'}</strong></p>
+            ${s.adminEmail?`<p class="text-xs text-gray-400 mt-0.5">Admin: ${s.adminEmail}</p>`:''}
+            ${s.whatsapp?`<p class="text-xs text-gray-400">WhatsApp: ${s.whatsapp}</p>`:''}
+            ${s.planValue?`<p class="text-xs text-blue-600 font-semibold mt-0.5">Plano: ${fmt(s.planValue)}/mês | Vence dia ${s.dueDay||10}</p>`:''}
+            <div class="flex items-center gap-2 mt-2 bg-gray-50 p-2 rounded-xl">
+              <p class="text-xs font-mono text-gray-500 flex-1 truncate">${storeLink}</p>
+              <button onclick="navigator.clipboard.writeText('${storeLink}').then(()=>toast('Link copiado! ✅'))" class="btn-gold px-2 py-1 rounded-lg text-xs font-bold flex-shrink-0"><i class="fas fa-copy mr-1"></i>Copiar</button>
+              <a href="${storeLink}" target="_blank" class="bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded-lg text-xs font-bold flex-shrink-0 transition"><i class="fas fa-external-link-alt"></i></a>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2 flex-shrink-0">
+            <button onclick="storeM.openModal('${s.id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold transition"><i class="fas fa-edit mr-1"></i>Editar</button>
+            <button onclick="storeM.setStatus('${s.id}','${s.status==='active'?'inactive':'active'}')"
+              class="${s.status==='active'?'bg-yellow-100 hover:bg-yellow-200 text-yellow-700':'bg-green-100 hover:bg-green-200 text-green-700'} px-3 py-2 rounded-xl text-xs font-bold transition">
+              <i class="fas fa-${s.status==='active'?'pause':'play'} mr-1"></i>${s.status==='active'?'Pausar':'Ativar'}
+            </button>
+            <button onclick="storeM.setStatus('${s.id}','${s.status==='blocked'?'active':'blocked'}')"
+              class="${s.status==='blocked'?'bg-green-100 hover:bg-green-200 text-green-700':'bg-red-100 hover:bg-red-200 text-red-600'} px-3 py-2 rounded-xl text-xs font-bold transition">
+              <i class="fas fa-${s.status==='blocked'?'unlock':'ban'} mr-1"></i>${s.status==='blocked'?'Desbloquear':'Bloquear'}
+            </button>
+            <button onclick="storeM.delete('${s.id}','${s.storeName||''}')" class="bg-gray-100 hover:bg-red-100 hover:text-red-600 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold transition"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  },
+  openModal(id=null){
+    const form=$id('store-form'); if(!form) return; form.reset();
+    $id('modal-store-title').innerText=id?'Editar Loja':'Nova Loja';
+    const slugInput=$id('store-slug-input');
+    if(id){
+      const s=allStores.find(x=>x.id===id); if(!s) return;
+      form.elements['id'].value=s.id;
+      ['storeName','slug','whatsapp','adminEmail','status','planValue','dueDay','notes'].forEach(k=>{ if(form.elements[k]&&s[k]!==undefined) form.elements[k].value=s[k]; });
+      if(slugInput){ slugInput.readOnly=true; slugInput.classList.add('bg-gray-100','text-gray-500','cursor-not-allowed'); }
+    } else {
+      if(slugInput){ slugInput.readOnly=false; slugInput.classList.remove('bg-gray-100','text-gray-500','cursor-not-allowed'); }
+    }
+    $id('modal-store').style.display='flex';
+  },
+  async save(e){
+    e.preventDefault(); loading(true,'Salvando...');
+    try{
+      const fd=new FormData(e.target); const id=fd.get('id');
+      const data={ storeName:fd.get('storeName'), whatsapp:fd.get('whatsapp')||'', adminEmail:fd.get('adminEmail')||'', status:fd.get('status')||'active', planValue:parseFloat(fd.get('planValue'))||49.90, dueDay:parseInt(fd.get('dueDay'))||10, notes:fd.get('notes')||'', updatedAt:serverTimestamp() };
+      if(!id){ data.slug=fd.get('slug'); data.createdAt=serverTimestamp(); await addDoc(collection(db,'companies'),data); toast(`Loja "${data.storeName}" criada! ✅`); }
+      else { await updateDoc(doc(db,'companies',id),data); toast('Loja atualizada! ✅'); }
+      $id('modal-store').style.display='none'; await loadAllData();
+    }catch(err){ console.error(err); toast('Erro ao salvar','error'); }
+    finally{ loading(false); }
+  },
+  async setStatus(id,status){
+    if(!confirm(`Confirmar: alterar status para "${status}"?`)) return;
+    await updateDoc(doc(db,'companies',id),{status,updatedAt:serverTimestamp()});
+    toast(`Status atualizado: ${status} ✅`); await loadAllData();
+  },
+  async delete(id,name){
+    if(!confirm(`ATENÇÃO: Excluir a loja "${name}" permanentemente?`)) return;
+    loading(true,'Excluindo...');
+    try{
+      for(const col of ['products','categories','orders','expenses']){
+        const snap=await getDocs(collection(db,'companies',id,col));
+        for(const d of snap.docs) await deleteDoc(d.ref);
+      }
+      await deleteDoc(doc(db,'companies',id)); toast('Loja excluída! 🗑️'); await loadAllData();
+    }catch(err){ console.error(err); toast('Erro ao excluir','error'); }
+    finally{ loading(false); }
+  }
+};
+window.storeM=storeM;
+
+// ══ PEDIDOS TODAS AS LOJAS ══
+const ordersM = {
+  async load(){
+    loading(true,'Carregando pedidos...');
+    const storeFilter=$id('orders-store-filter')?.value||'all';
+    const statusFilter=$id('orders-status-filter')?.value||'all';
+    try{
+      const storesToQuery=storeFilter==='all'?allStores:allStores.filter(s=>s.id===storeFilter);
+      const allOrders=[];
+      for(const store of storesToQuery){
+        const snap=await getDocs(query(collection(db,'companies',store.id,'orders'),orderBy('createdAt','desc')));
+        snap.docs.forEach(d=>allOrders.push({...d.data(),id:d.id,storeId:store.id,storeName:store.storeName||store.slug}));
+      }
+      let filtered=storeFilter==='all'?allOrders:allOrders;
+      if(statusFilter!=='all') filtered=allOrders.filter(o=>o.status===statusFilter);
+      filtered.sort((a,b)=>{ const da=a.createdAt?.toDate?a.createdAt.toDate():new Date(a.createdAt||0); const db2=b.createdAt?.toDate?b.createdAt.toDate():new Date(b.createdAt||0); return db2-da; });
+      const list=$id('all-orders-list'); if(!list) return;
+      const sColor={pending:'bg-yellow-100 text-yellow-700',confirmed:'bg-blue-100 text-blue-700',completed:'bg-green-100 text-green-700',canceled:'bg-red-100 text-red-600'};
+      const sLabel={pending:'⏳ Pendente',confirmed:'✅ Confirmado',completed:'🏁 Concluído',canceled:'❌ Cancelado'};
+      list.innerHTML=filtered.map(o=>`
+        <tr class="border-b hover:bg-gray-50 transition">
+          <td class="p-4 font-mono text-xs font-bold">${o.orderId||o.id.slice(0,8)}</td>
+          <td class="p-4"><span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">${o.storeName}</span></td>
+          <td class="p-4 font-semibold">${o.customerName||'—'}</td>
+          <td class="p-4 font-bold text-yellow-700">${fmt(o.finalizedValue||o.subtotal||0)}</td>
+          <td class="p-4"><span class="text-xs px-2 py-1 rounded-full font-bold ${sColor[o.status]||sColor.pending}">${sLabel[o.status]||o.status}</span></td>
+          <td class="p-4 text-xs text-gray-500">${o.createdAt?.toDate?o.createdAt.toDate().toLocaleDateString('pt-BR'):'—'}</td>
+        </tr>`).join('')||'<tr><td colspan="6" class="p-8 text-center text-gray-400">Nenhum pedido</td></tr>';
+    }catch(e){ console.error(e); }
+    loading(false);
+  }
+};
+window.ordersM=ordersM;
+
+// ══ FINANCEIRO GLOBAL ══
+const financeM = {
+  _expenses:[],
+  async load(){
+    loading(true,'Carregando financeiro...');
+    const months=parseInt($id('fin-period')?.value)||3;
+    const storeFilter=$id('fin-store')?.value||'all';
+    const storesToQuery=storeFilter==='all'?allStores:allStores.filter(s=>s.id===storeFilter);
+    const cutoff=new Date(); cutoff.setMonth(cutoff.getMonth()-months);
+    try{
+      let allOrders=[];
+      for(const store of storesToQuery){
+        const [oSnap,pSnap]=await Promise.all([getDocs(collection(db,'companies',store.id,'orders')),getDocs(collection(db,'companies',store.id,'products'))]);
+        const prods=pSnap.docs.map(d=>({id:d.id,...d.data()}));
+        oSnap.docs.forEach(d=>{ const o={...d.data(),id:d.id,storeId:store.id,storeName:store.storeName||store.slug}; const date=o.createdAt?.toDate?o.createdAt.toDate():new Date(o.createdAt||0); if(date>=cutoff&&o.status==='completed') allOrders.push({...o,_products:prods}); });
+      }
+      const totalRev=allOrders.reduce((a,o)=>a+(o.finalizedValue||o.subtotal||0),0);
+      const totalProfit=allOrders.reduce((a,o)=>a+(o.items||[]).reduce((b,i)=>{ const p=o._products?.find(x=>x.id===i.id); const cost=(i.costPrice||p?.costPrice||0)+(i.otherCosts||p?.otherCosts||0); return b+(i.price-cost)*i.qty; },0),0);
+      const avgTicket=allOrders.length?totalRev/allOrders.length:0;
+      $id('fin-revenue').innerText=fmt(totalRev); $id('fin-profit').innerText=fmt(totalProfit); $id('fin-orders').innerText=allOrders.length; $id('fin-avg').innerText=fmt(avgTicket);
+      // Gráfico
+      const mths=[]; for(let i=months-1;i>=0;i--){ const d=new Date(); d.setMonth(d.getMonth()-i); mths.push({key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,label:d.toLocaleString('pt-BR',{month:'short',year:'2-digit'})}); }
+      const getM=o=>{ const d=o.createdAt?.toDate?o.createdAt.toDate():new Date(o.createdAt||0); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
+      const rev=mths.map(m=>allOrders.filter(o=>getM(o)===m.key).reduce((a,o)=>a+(o.finalizedValue||o.subtotal||0),0));
+      const pft=mths.map(m=>allOrders.filter(o=>getM(o)===m.key).reduce((a,o)=>a+(o.items||[]).reduce((b,i)=>{ const p=o._products?.find(x=>x.id===i.id); const cost=(i.costPrice||p?.costPrice||0)+(i.otherCosts||p?.otherCosts||0); return b+(i.price-cost)*i.qty; },0),0));
+      const ctx=$id('masterFinanceChart'); if(ctx){ if(ctx._chart) ctx._chart.destroy(); ctx._chart=new Chart(ctx,{type:'bar',data:{labels:mths.map(m=>m.label),datasets:[{label:'Faturamento',data:rev,backgroundColor:'rgba(212,175,55,0.7)',borderRadius:6},{label:'Lucro',type:'line',data:pft,borderColor:'#10B981',backgroundColor:'rgba(16,185,129,0.1)',fill:true,tension:0.4,pointRadius:5,pointBackgroundColor:'#10B981',borderWidth:3}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true}}}}); }
+      // Tabela por loja
+      const byStore=storesToQuery.map(store=>{ const so=allOrders.filter(o=>o.storeId===store.id); const rev=so.reduce((a,o)=>a+(o.finalizedValue||o.subtotal||0),0); const profit=so.reduce((a,o)=>a+(o.items||[]).reduce((b,i)=>{ const p=o._products?.find(x=>x.id===i.id); const cost=(i.costPrice||p?.costPrice||0)+(i.otherCosts||p?.otherCosts||0); return b+(i.price-cost)*i.qty; },0),0); return {...store,orders:so.length,revenue:rev,profit,avg:so.length?rev/so.length:0}; }).sort((a,b)=>b.revenue-a.revenue);
+      const sBadge={active:'bg-green-100 text-green-700',inactive:'bg-yellow-100 text-yellow-700',blocked:'bg-red-100 text-red-600'};
+      const ft=$id('finance-stores-table'); if(ft) ft.innerHTML=byStore.map(s=>`<tr class="border-b hover:bg-gray-50 transition"><td class="p-4 font-bold">${s.storeName||'—'}</td><td class="p-4">${s.orders}</td><td class="p-4 font-bold text-yellow-700">${fmt(s.revenue)}</td><td class="p-4 font-bold text-green-700">${fmt(s.profit)}</td><td class="p-4 text-gray-600">${fmt(s.avg)}</td><td class="p-4"><span class="text-xs px-2 py-0.5 rounded-full font-bold ${sBadge[s.status]||sBadge.inactive}">${s.status||'—'}</span></td></tr>`).join('')||'<tr><td colspan="6" class="p-8 text-center text-gray-400">Nenhum dado</td></tr>';
+      // Custos master
+      const eSnap=await getDocs(collection(db,'master_expenses'));
+      this._expenses=eSnap.docs.map(d=>({id:d.id,...d.data()}));
+      const el=$id('master-expenses-list'); if(el) el.innerHTML=this._expenses.length?this._expenses.map(ex=>`<tr class="border-b hover:bg-gray-50"><td class="p-4 font-semibold">${ex.description}</td><td class="p-4 font-bold text-red-600">${fmt(ex.value)}</td><td class="p-4 text-sm text-gray-500">${ex.month||'—'}</td><td class="p-4"><span class="text-xs px-2 py-0.5 rounded-full ${ex.recurring?'bg-blue-100 text-blue-700':'bg-gray-100 text-gray-500'}">${ex.recurring?'Recorrente':'Único'}</span></td><td class="p-4"><div class="flex gap-2"><button onclick="financeM.openExpenseModal('${ex.id}')" class="text-blue-500 hover:text-blue-700 text-sm"><i class="fas fa-edit"></i></button><button onclick="financeM.deleteExpense('${ex.id}')" class="text-red-400 hover:text-red-600 text-sm"><i class="fas fa-trash"></i></button></div></td></tr>`).join(''):'<tr><td colspan="5" class="p-8 text-center text-gray-400">Nenhum custo lançado</td></tr>';
+    }catch(e){ console.error(e); }
+    loading(false);
+  },
+  openExpenseModal(id=null){
+    const form=$id('master-expense-form'); if(!form) return; form.reset();
+    $id('master-exp-title').innerText=id?'Editar Custo':'Lançar Custo';
+    if(!id){ form.elements['month'].value=nowMonth(); }
+    if(id){ const ex=this._expenses.find(x=>x.id===id); if(!ex) return; form.elements['id'].value=ex.id; form.elements['description'].value=ex.description||''; form.elements['value'].value=ex.value||0; form.elements['month'].value=ex.month||nowMonth(); if(form.elements['recurring']) form.elements['recurring'].checked=!!ex.recurring; }
+    $id('modal-master-expense').style.display='flex';
+  },
+  async saveExpense(e){
+    e.preventDefault();
+    const fd=new FormData(e.target); const id=fd.get('id');
+    const data={description:fd.get('description'),value:parseFloat(fd.get('value'))||0,month:fd.get('month'),recurring:fd.get('recurring')==='on'};
+    if(id) await updateDoc(doc(db,'master_expenses',id),data);
+    else await addDoc(collection(db,'master_expenses'),{...data,createdAt:serverTimestamp()});
+    toast('Custo salvo! ✅'); $id('modal-master-expense').style.display='none'; this.load();
+  },
+  async deleteExpense(id){ if(!confirm('Excluir custo?')) return; await deleteDoc(doc(db,'master_expenses',id)); toast('Removido! 🗑️'); this.load(); }
+};
+window.financeM=financeM;
+
+// ══ COBRANÇAS ══
+const billingM = {
+  _billings:[], _currentBilling:null,
+  _defaultTemplate:`Olá, *{LOJA}*! 👋\n\nPassando para lembrar que a mensalidade do mês de *{MES}* está em aberto.\n\n💰 *Valor: {VALOR}*\n📅 *Vencimento: {VENCIMENTO}*\n\nQualquer dúvida, estou à disposição! 😊`,
+
+  async load(){
+    const month=$id('bill-month-filter')?.value||nowMonth();
+    const statusFilter=$id('bill-status-filter')?.value||'all';
+    loading(true,'Carregando cobranças...');
+    try{
+      const snap=await getDocs(query(collection(db,'billings'),where('month','==',month)));
+      let bills=snap.docs.map(d=>({id:d.id,...d.data()}));
+      if(statusFilter!=='all') bills=bills.filter(b=>b.status===statusFilter);
+      this._billings=bills;
+      // Cards
+      const paid=bills.filter(b=>b.status==='paid').length;
+      const pending=bills.filter(b=>b.status==='pending').length;
+      const overdue=bills.filter(b=>b.status==='overdue').length;
+      const expected=allStores.filter(s=>s.status==='active').reduce((a,s)=>a+(s.planValue||0),0);
+      $id('bill-paid').innerText=paid; $id('bill-pending').innerText=pending; $id('bill-overdue').innerText=overdue; $id('bill-expected').innerText=fmt(expected);
+      // Lista
+      const el=$id('billing-list'); if(!el) return;
+      const sColor={paid:'bg-green-100 text-green-700',pending:'bg-yellow-100 text-yellow-700',overdue:'bg-red-100 text-red-600'};
+      const sLabel={paid:'✅ Pago',pending:'⏳ Pendente',overdue:'🔴 Vencido'};
+      // Para lojas sem cobrança no mês, mostra como pendente
+      const allBills=allStores.map(store=>{ const existing=bills.find(b=>b.storeId===store.id); return existing||{id:null,storeId:store.id,storeName:store.storeName,whatsapp:store.whatsapp,value:store.planValue||0,month,status:'pending',dueDate:''}; });
+      const filtered=statusFilter==='all'?allBills:allBills.filter(b=>b.status===statusFilter);
+      el.innerHTML=filtered.map(b=>`
+        <div class="store-card ${b.status}">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div class="flex-1">
+              <div class="flex items-center gap-3 mb-1">
+                <h3 class="font-bold">${b.storeName||'—'}</h3>
+                <span class="text-xs px-2 py-0.5 rounded-full font-bold ${sColor[b.status]||sColor.pending}">${sLabel[b.status]||'—'}</span>
+              </div>
+              <p class="text-sm text-gray-500">Valor: <strong class="text-accent">${fmt(b.value)}</strong> | Vencimento: <strong>${b.dueDate||'—'}</strong></p>
+              ${b.notes?`<p class="text-xs text-gray-400 mt-1">${b.notes}</p>`:''}
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+              <button onclick="billingM.openModal(${JSON.stringify(b).replace(/"/g,'&quot;')})" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold transition"><i class="fas fa-edit mr-1"></i>Editar</button>
+              ${b.status!=='paid'?`<button onclick="billingM.markPaid('${b.storeId}','${b.month}')" class="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-2 rounded-xl text-xs font-bold transition"><i class="fas fa-check mr-1"></i>Marcar Pago</button>`:''}
+              <button onclick="billingM.sendWADirect('${b.storeId}')" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition"><i class="fab fa-whatsapp mr-1"></i>WA</button>
+            </div>
+          </div>
+        </div>`).join('')||'<div class="text-center py-10 text-gray-400">Nenhuma cobrança encontrada</div>';
+    }catch(e){ console.error(e); }
+    loading(false);
+  },
+
+  openModal(bill){
+    const form=$id('billing-form'); if(!form) return; form.reset();
+    if(bill.id) form.elements['id'].value=bill.id;
+    form.elements['storeId'].value=bill.storeId||'';
+    form.elements['storeName'].value=bill.storeName||'';
+    form.elements['value'].value=bill.value||0;
+    form.elements['month'].value=bill.month||nowMonth();
+    form.elements['dueDate'].value=bill.dueDate||'';
+    form.elements['status'].value=bill.status||'pending';
+    form.elements['notes'].value=bill.notes||'';
+    this._currentBilling=bill;
+    $id('modal-billing').style.display='flex';
+  },
+  async save(e){
+    e.preventDefault();
+    const fd=new FormData(e.target); const id=fd.get('id');
+    const data={storeId:fd.get('storeId'),storeName:fd.get('storeName'),value:parseFloat(fd.get('value'))||0,month:fd.get('month'),dueDate:fd.get('dueDate'),status:fd.get('status'),notes:fd.get('notes')||'',updatedAt:serverTimestamp()};
+    if(id) await updateDoc(doc(db,'billings',id),data);
+    else await addDoc(collection(db,'billings'),{...data,createdAt:serverTimestamp()});
+    toast('Cobrança salva! ✅'); $id('modal-billing').style.display='none'; this.load();
+  },
+  async markPaid(storeId,month){
+    const existing=this._billings.find(b=>b.storeId===storeId&&b.month===month);
+    if(existing) await updateDoc(doc(db,'billings',existing.id),{status:'paid',paidAt:serverTimestamp()});
+    else{
+      const store=allStores.find(s=>s.id===storeId);
+      await addDoc(collection(db,'billings'),{storeId,storeName:store?.storeName||'',value:store?.planValue||0,month,status:'paid',paidAt:serverTimestamp(),createdAt:serverTimestamp()});
+    }
+    toast('Marcado como pago! ✅'); this.load();
+  },
+  async generateMonth(){
+    const month=nowMonth(); loading(true,'Gerando cobranças...');
+    try{
+      for(const store of allStores.filter(s=>s.status==='active')){
+        const existing=this._billings.find(b=>b.storeId===store.id&&b.month===month);
+        if(!existing){
+          const d=new Date(); d.setDate(store.dueDay||10);
+          await addDoc(collection(db,'billings'),{storeId:store.id,storeName:store.storeName,whatsapp:store.whatsapp,value:store.planValue||0,month,dueDate:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(store.dueDay||10).padStart(2,'0')}`,status:'pending',createdAt:serverTimestamp()});
+        }
+      }
+      toast('Cobranças geradas! ✅'); this.load();
+    }catch(e){ console.error(e); toast('Erro ao gerar','error'); }
+    loading(false);
+  },
+  _buildMsg(store,bill){
+    const template=localStorage.getItem('billingTemplate')||this._defaultTemplate;
+    const mes=new Date(bill.month+'-01').toLocaleString('pt-BR',{month:'long',year:'numeric'});
+    return template.replace(/{LOJA}/g,bill.storeName||store?.storeName||'').replace(/{VALOR}/g,fmt(bill.value||store?.planValue||0)).replace(/{VENCIMENTO}/g,bill.dueDate||'—').replace(/{MES}/g,mes);
+  },
+  sendWhatsApp(){
+    const form=$id('billing-form'); if(!form) return;
+    const storeId=form.elements['storeId'].value;
+    const store=allStores.find(s=>s.id===storeId);
+    const bill={storeName:form.elements['storeName'].value,value:parseFloat(form.elements['value'].value)||0,month:form.elements['month'].value,dueDate:form.elements['dueDate'].value};
+    const msg=this._buildMsg(store,bill);
+    const wa=(store?.whatsapp||'').replace(/\D/g,'');
+    if(!wa) return toast('WhatsApp não cadastrado','warn');
+    window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`,'_blank');
+  },
+  sendWADirect(storeId){
+    const store=allStores.find(s=>s.id===storeId);
+    const bill=this._billings.find(b=>b.storeId===storeId)||{storeName:store?.storeName,value:store?.planValue||0,month:nowMonth(),dueDate:''};
+    const msg=this._buildMsg(store,bill);
+    const wa=(store?.whatsapp||'').replace(/\D/g,'');
+    if(!wa) return toast('WhatsApp não cadastrado nesta loja','warn');
+    window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`,'_blank');
+  },
+  async sendAll(){
+    const pending=allStores.filter(s=>s.status==='active');
+    if(!pending.length) return toast('Nenhuma loja ativa','warn');
+    if(!confirm(`Enviar cobrança via WhatsApp para ${pending.length} lojas?`)) return;
+    for(const store of pending){ this.sendWADirect(store.id); await new Promise(r=>setTimeout(r,800)); }
+  },
+  openTemplateModal(){
+    const tpl=localStorage.getItem('billingTemplate')||this._defaultTemplate;
+    const el=$id('billing-template-text'); if(el) el.value=tpl;
+    $id('modal-template').style.display='flex';
+  },
+  saveTemplate(){
+    const tpl=$id('billing-template-text')?.value||this._defaultTemplate;
+    localStorage.setItem('billingTemplate',tpl);
+    toast('Template salvo! ✅'); $id('modal-template').style.display='none';
+  }
+};
+window.billingM=billingM;
+
+// ══ USUÁRIOS ══
+const usersM = {
+  load(){ this.renderAdminsList(); },
+  fillResetEmail(){ const sel=$id('reset-store-select'); if(!sel) return; const store=allStores.find(s=>s.id===sel.value); const ef=$id('reset-email-field'); if(ef&&store?.adminEmail) ef.value=store.adminEmail; },
+  async linkAdmin(){
+    const storeId=$id('user-store-select')?.value; const uid=$id('user-uid')?.value.trim(); const email=$id('user-email-ref')?.value.trim();
+    if(!storeId||!uid) return toast('Selecione a loja e informe o UID','warn');
+    loading(true,'Vinculando...');
+    try{ await updateDoc(doc(db,'companies',storeId),{adminUid:uid,adminEmail:email||'',updatedAt:serverTimestamp()}); toast('Admin vinculado! ✅'); $id('user-uid').value=''; $id('user-email-ref').value=''; await loadAllData(); }
+    catch(err){ console.error(err); toast('Erro ao vincular','error'); }
+    finally{ loading(false); }
+  },
+  async sendReset(){
+    const email=$id('reset-email-field')?.value.trim(); if(!email) return toast('Informe o e-mail','warn');
+    try{ await sendPasswordResetEmail(auth,email); toast(`Link enviado para ${email}! ✉️`); }
+    catch(err){ toast('E-mail não encontrado no Firebase','error'); }
+  },
+  renderAdminsList(){
+    const el=$id('admins-list'); if(!el) return;
+    el.innerHTML=allStores.map(s=>`
+      <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+        <div>
+          <p class="font-bold text-sm">${s.storeName||s.slug}</p>
+          <p class="text-xs text-gray-400">${s.adminEmail||'Sem admin vinculado'}</p>
+          ${s.adminUid?`<p class="text-xs font-mono text-gray-300">UID: ${s.adminUid.slice(0,16)}...</p>`:'<p class="text-xs text-red-400">⚠️ UID não vinculado</p>'}
+        </div>
+        <button onclick="usersM.fillResetEmailDirect('${s.adminEmail||''}')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold transition" ${!s.adminEmail?'disabled':''}>
+          <i class="fas fa-key mr-1"></i>Reset
+        </button>
+      </div>`).join('')||'<p class="text-gray-400 text-center py-4">Nenhuma loja cadastrada</p>';
+  },
+  fillResetEmailDirect(email){ if(!email) return; const ef=$id('reset-email-field'); if(ef){ ef.value=email; ef.scrollIntoView({behavior:'smooth',block:'center'}); } }
+};
+window.usersM=usersM;
+
+// Fechar modais clicando fora
+document.addEventListener('DOMContentLoaded',()=>{
+  ['modal-store','modal-billing','modal-template','modal-master-expense'].forEach(id=>{
+    const el=$id(id); if(el) el.addEventListener('click',e=>{ if(e.target===el) el.style.display='none'; });
+  });
+});
+</script>
+</body>
+</html>
